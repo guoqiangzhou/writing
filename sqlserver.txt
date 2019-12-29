@@ -1,0 +1,103 @@
+1. I have a temporary table containing the values and would like to update another table using those values.
+a. 	UPDATE
+		Table_A
+	SET
+		Table_A.col1 = Table_B.col1,
+		Table_A.col2 = Table_B.col2
+	FROM
+		Some_Table AS Table_A
+		INNER JOIN Other_Table AS Table_B
+			ON Table_A.id = Table_B.id
+	WHERE
+		Table_A.col3 = 'cool'
+
+b. UPDATE table 
+	SET Col1 = i.Col1, 
+    Col2 = i.Col2 
+   FROM (
+     SELECT ID, Col1, Col2 
+     FROM other_table) i
+   WHERE 
+     i.ID = table.ID
+
+c.
+    MERGE INTO YourTable T
+		USING other_table S 
+		ON T.id = S.id
+			AND S.tsql = 'cool'
+	WHEN MATCHED THEN
+		UPDATE 
+		SET col1 = S.col1, 
+			col2 = S.col2;
+			
+d. ;WITH CTE
+     AS (SELECT T1.Col1,
+                T2.Col1 AS _Col1,
+                T1.Col2,
+                T2.Col2 AS _Col2
+         FROM   T1
+                JOIN T2
+                  ON T1.id = T2.id
+         /*Where clause added to exclude rows that are the same in both tables
+           Handles NULL values correctly*/
+         WHERE EXISTS(SELECT T1.Col1,
+                             T1.Col2
+                       EXCEPT
+                       SELECT T2.Col1,
+                              T2.Col2))
+UPDATE CTE
+SET    Col1 = _Col1,
+       Col2 = _Col2
+	   
+	   
+2. Add a column with a default value to an existing table in SQL Server
+	  
+ALTER TABLE YourTable
+    ADD Column1 INT NOT NULL DEFAULT 0,
+        Column2 INT NOT NULL DEFAULT 1,
+        Column3 VARCHAR(50) DEFAULT 'Hello'
+GO
+
+3.  FOR XML
+
++----+------+
+| Id | Name |
++----+------+    
+| 1  | aaa  |
+| 1  | bbb  |
+| 1  | ccc  |
+| 1  | ddd  |
+| 1  | eee  |
++----+------+
+Required output: 
++----+---------------------+
+| Id |        abc          |
++----+---------------------+ 
+|  1 | aaa,bbb,ccc,ddd,eee |
++----+---------------------+
+Query:
+SELECT ID, 
+    abc = STUFF(
+                 (SELECT ',' + name FROM temp1 FOR XML PATH ('')), 1, 1, ''
+               ) 
+FROM temp1 GROUP BY id
+
+4.How to check if a column exists in a SQL Server table?
+IF EXISTS(SELECT 1 FROM sys.columns 
+          WHERE Name = N'columnName'
+          AND Object_ID = Object_ID(N'schemaName.tableName'))
+BEGIN
+    -- Column Exists
+END
+Martin Smith's version is shorter:
+IF COL_LENGTH('schemaName.tableName', 'columnName') IS NOT NULL
+BEGIN
+    -- Column Exists
+END
+
+5. Get Date part from a DateTime:
+
+On SQL Server 2008 and higher, you should CONVERT to date:
+SELECT CONVERT(date, getdate())
+On older versions, you can do the following:
+SELECT DATEADD(dd, 0, DATEDIFF(dd, 0, @your_date))
