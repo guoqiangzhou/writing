@@ -101,3 +101,114 @@ On SQL Server 2008 and higher, you should CONVERT to date:
 SELECT CONVERT(date, getdate())
 On older versions, you can do the following:
 SELECT DATEADD(dd, 0, DATEDIFF(dd, 0, @your_date))
+
+
+6.
+
+The CASE statement is the closest to IF in SQL and is supported on all versions of SQL Server.
+SELECT CAST(
+             CASE
+                  WHEN Obsolete = 'N' or InStock = 'Y'
+                     THEN 1
+                  ELSE 0
+             END AS bit) as Saleable, *
+FROM Product
+You only need to do the CAST if you want the result as a Boolean value. If you are happy with an int, this works:
+SELECT CASE
+            WHEN Obsolete = 'N' or InStock = 'Y'
+               THEN 1
+               ELSE 0
+       END as Saleable, *
+FROM Product
+CASE statements can be embedded in other CASE statements and even included in aggregates.
+
+
+7 sale.assid contains the correct value to update ud.assid.
+update u
+set u.assid = s.assid
+from ud u
+    inner join sale s on
+        u.id = s.udid
+
+
+8. How can I remove duplicate rows?
+Assuming no nulls, you GROUP BY the unique columns, and SELECT the MIN (or MAX) RowId as the row to keep. Then, just delete everything that didn't have a row id:
+DELETE FROM MyTable
+LEFT OUTER JOIN (
+   SELECT MIN(RowId) as RowId, Col1, Col2, Col3 
+   FROM MyTable 
+   GROUP BY Col1, Col2, Col3
+) as KeepRows ON
+   MyTable.RowId = KeepRows.RowId
+WHERE
+   KeepRows.RowId IS NULL
+   
+9. Get size of all tables in database.
+SELECT 
+    t.NAME AS TableName,
+    s.Name AS SchemaName,
+    p.rows AS RowCounts,
+    SUM(a.total_pages) * 8 AS TotalSpaceKB, 
+    CAST(ROUND(((SUM(a.total_pages) * 8) / 1024.00), 2) AS NUMERIC(36, 2)) AS TotalSpaceMB,
+    SUM(a.used_pages) * 8 AS UsedSpaceKB, 
+    CAST(ROUND(((SUM(a.used_pages) * 8) / 1024.00), 2) AS NUMERIC(36, 2)) AS UsedSpaceMB, 
+    (SUM(a.total_pages) - SUM(a.used_pages)) * 8 AS UnusedSpaceKB,
+    CAST(ROUND(((SUM(a.total_pages) - SUM(a.used_pages)) * 8) / 1024.00, 2) AS NUMERIC(36, 2)) AS UnusedSpaceMB
+FROM 
+    sys.tables t
+INNER JOIN      
+    sys.indexes i ON t.OBJECT_ID = i.object_id
+INNER JOIN 
+    sys.partitions p ON i.object_id = p.OBJECT_ID AND i.index_id = p.index_id
+INNER JOIN 
+    sys.allocation_units a ON p.partition_id = a.container_id
+LEFT OUTER JOIN 
+    sys.schemas s ON t.schema_id = s.schema_id
+WHERE 
+    t.NAME NOT LIKE 'dt%' 
+    AND t.is_ms_shipped = 0
+    AND i.OBJECT_ID > 255 
+GROUP BY 
+    t.Name, s.Name, p.Rows
+ORDER BY 
+    t.Name
+	
+10. How to Delete using INNER JOIN with SQL Server?
+DELETE w
+FROM WorkRecord2 w
+INNER JOIN Employee e
+  ON EmployeeRun=EmployeeNo
+WHERE Company = '1' AND Date = '2013-05-06'
+
+11. Single quotes are escaped by doubling them up.
+INSERT INTO @my_table VALUES ('hi, my name''s tim.')
+
+
+12.
+For queries like this it is always best to use an INFORMATION_SCHEMA view. These views are (mostly) standard across many different databases and rarely change from version to version.
+To check if a table exists use:
+IF (EXISTS (SELECT * 
+                 FROM INFORMATION_SCHEMA.TABLES 
+                 WHERE TABLE_SCHEMA = 'TheSchema' 
+                 AND  TABLE_NAME = 'TheTable'))
+BEGIN
+    --Do Stuff
+END
+
+13. Find all tables containing column with specified name - MS SQL Server
+SELECT      c.name  AS 'ColumnName'
+            ,t.name AS 'TableName'
+FROM        sys.columns c
+JOIN        sys.tables  t   ON c.object_id = t.object_id
+WHERE       c.name LIKE '%MyName%'
+ORDER BY    TableName
+            ,ColumnName;
+			
+14. Altering a column: null to not null
+
+First, make all current NULL values disappear:
+UPDATE [Table] SET [Column]=0 WHERE [Column] IS NULL
+Then, update the table definition to disallow NULLs:
+ALTER TABLE [Table] ALTER COLUMN [Column] INTEGER NOT NULL
+
+15. 
